@@ -1,0 +1,67 @@
+# Configuração de serviços e preços do Sommelier de IA
+# Leia este arquivo sempre que precisar de um valor de preço ou descrição de serviço.
+# NUNCA hardcode valores no SKILL.md, nas referências ou nos templates HTML.
+# Os templates usam [[marcadores]] — a LLM lê este YAML e preenche os marcadores.
+#
+# Regra para ref (referência cruzada):
+# Quando um campo tiver { ref: "caminho.de.outra.chave" }, resolva-o buscando
+# o valor da chave indicada. Ex.: bonus_abatimento.ref = "servicos.estruturado.preco"
+# → resolva para 897 (o valor atual de estruturado.preco).
+
+servicos:
+  sutil:
+    slug: "sutil"
+    label_relatorio: "Sutil · 20 min"
+    duracao_minutos: 20
+    preco: 0
+    descricao_curta: "Uma introdução leve para descobrir seu perfil com uma indicação para degustação."
+    destaque_card: "grátis"
+
+  estruturado:
+    slug: "estruturado"
+    label_relatorio: "Encorpado · 45 min"
+    duracao_minutos: 45
+    preco: 897
+    descricao_curta: "Uma curadoria encorpada para quem quer começar a aplicar IA de maneira mais integrada."
+    destaque_card: "recomendado"
+    garantia: "Se a ficha de degustação não trouxer oportunidades reais de recuperar tempo, devolvo 100% do valor."
+
+  complexo:
+    slug: "complexo"
+    label_relatorio: "Complexo · sob consulta"
+    duracao_minutos: null  # a combinar
+    preco: "a combinar"
+    descricao_curta: "Para times. Mapeamento de fluxos coletivos e plano de adoção em 30/60/90 dias."
+    destaque_card: "para times"
+    bonus_abatimento:
+      ref: "servicos.estruturado.preco"
+      # Se o cliente já contratou o Encorpado, o valor (R$ 897) é abatido do Complexo.
+
+  concierge_ai:
+    slug: "concierge-ai"
+    label_curto: "Concierge"
+    preco: 1897
+    descricao_curta: "Acompanhamento mensal contínuo para implementação."
+    descricao_completa: |
+      Duas sessões mensais de 45 min (Google Meet) para pareamento,
+      ajuste de ferramentas e priorização. Hub de conhecimento com
+      acompanhamento de horas economizadas e ROI mensal. Até 2 recursos
+      personalizados por mês (prompt, script, workflow — o que fizer
+      sentido). Prioridade em dúvidas por WhatsApp (resposta em até 24h
+      úteis, seg-sex).
+    itens_inclusos:
+      - "2 sessões de 45 min/mês (Google Meet) — pareamento, ajuste, priorização"
+      - "Hub de conhecimento: painel com horas economizadas e ROI mensal"
+      - "Até 2 recursos personalizados/mês (prompt, script, workflow — escopo combinado na sessão)"
+      - "Prioridade em dúvidas (WhatsApp, resposta em até 24h úteis, seg-sex)"
+    recurso_personalizado:
+      limite_por_mes: 2
+      regra: "Cada recurso é definido junto com o cliente na sessão."
+    bonus_abatimento:
+      ref: "servicos.estruturado.preco"
+      # Sempre use o valor atual de estruturado.preco como abatimento.
+      # Se o cliente já contratou o Encorpado, este valor é abatido do Concierge.
+      # Primeiro mês: R$ 1.897 - R$ 897 = R$ 1.000
+    garantia:
+      camada_1: "Cancele quando quiser, sem multa, sem fidelidade."
+      camada_2: "Se nas primeiras 8 semanas você participou das 2 sessões mensais, seguiu o plano combinado E não recuperou o equivalente ao investimento em horas economizadas, devolvo 100% do valor pago."

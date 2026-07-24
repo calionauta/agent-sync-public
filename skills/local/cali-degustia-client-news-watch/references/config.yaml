@@ -1,0 +1,5 @@
+# Default paths and settings for cali-client-news-watch
+# Override these at runtime by specifying a different directory.
+
+client_reports_dir: ""  # Set this to a default path, e.g. ~/clientes/reports/
+# If empty, the skill will prompt the user for the directory each run.

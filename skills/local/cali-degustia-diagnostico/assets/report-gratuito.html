@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sommelier de IA - Sutil - [[NOME_DO_CLIENTE_OU_EMPRESA]]</title>
+<!--
+  ============================================================================
+  TEMPLATE: Sutil (20 min · R$ 0)
+  Deliberadamente ENXUTO: 1 a 2 ganhos rápidos + 1 linha de contraste 🌱
+  + convite aos serviços pagos.
+  Preencha TODOS os marcadores [[ ... ]]. Não deixe nenhum "[[" no arquivo final.
+  O bloco "REPETIVEL: win" pode ir de 1 a 2 (nunca mais que 2).
+  NÃO incluir matriz, stack de ferramentas, primeiros resultados em 4 dias,
+  tabela de ROI, bônus de processo, rotina diária ou "o que vem depois".
+  Nunca escreva "consulte a Cali" ou "pergunte ao usuário" no texto.
+  ============================================================================
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#faf8f5; --bg-alt:#f0ece4; --ink:#2b241c; --ink-soft:#5c5347;
+    --accent:#7a3b2e; --accent-soft:#c98a63; --line:#ded4c4;
+    --serif:"DM Serif Display", Georgia, "Times New Roman", serif;
+    --sans:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg-alt);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .page{max-width:720px;margin:0 auto;background:var(--bg);}
+  .pad{padding:48px 56px;}
+  a{color:var(--accent);}
+
+  .brandbar{display:flex;align-items:center;justify-content:space-between;padding:20px 56px;border-bottom:1px solid var(--line);}
+  .brand{font-family:var(--serif);font-size:1.35rem;color:var(--ink);}
+  .brand .spark{color:var(--accent-soft);margin-right:.35em;}
+  .tag{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);border:1px solid var(--line);border-radius:999px;padding:6px 14px;}
+
+  .cover{padding:56px 56px 36px;border-bottom:1px solid var(--line);}
+  .eyebrow{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:14px;}
+  .cover h1{font-family:var(--serif);font-weight:400;font-size:2.3rem;line-height:1.12;color:var(--ink);}
+  .cover .accent{color:var(--accent);}
+  .cover .for{margin-top:16px;font-size:1.02rem;color:var(--ink-soft);}
+  .cover .for strong{color:var(--ink);font-weight:600;}
+  .cover .date{margin-top:6px;font-size:.85rem;color:var(--ink-soft);}
+
+  section{border-bottom:1px solid var(--line);}
+  .sec-head{margin-bottom:22px;}
+  .sec-head h2{font-family:var(--serif);font-weight:400;font-size:1.7rem;color:var(--ink);display:inline-block;}
+  .sec-head h2::after{content:"";display:block;width:52px;height:3px;background:var(--accent-soft);border-radius:2px;margin-top:10px;}
+  p{color:var(--ink-soft);}
+  .lead{font-size:1.05rem;color:var(--ink);}
+
+  .win{border:1px solid var(--line);border-radius:12px;background:var(--bg-alt);padding:24px;margin-bottom:18px;}
+  .win .wn{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:8px;}
+  .win .pain{font-family:var(--serif);font-size:1.2rem;color:var(--ink);}
+  .win .fix{margin-top:12px;color:var(--ink-soft);}
+  .win .fix b{color:var(--ink);font-weight:600;}
+  .win .contrast-line{margin-top:10px;padding:8px 10px;background:var(--bg);border-radius:6px;font-size:.82rem;color:var(--ink-soft);line-height:1.5;}
+  .win .first{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:.92rem;color:var(--ink);}
+  .win .first .k{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:4px;}
+
+  .start{background:var(--bg-alt);border-radius:12px;padding:22px 24px;}
+  .start .k{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:8px;}
+  .start p{color:var(--ink);}
+
+  .invite{margin:0;background:var(--accent);color:var(--bg);border-radius:14px;padding:32px 34px;}
+  .invite .eyebrow{color:var(--accent-soft);}
+  .invite h3{font-family:var(--serif);font-weight:400;font-size:1.55rem;color:var(--bg);margin:6px 0 12px;}
+  .invite p{color:var(--bg);opacity:.92;}
+  .invite ul{margin:14px 0 0;padding-left:20px;color:var(--bg);opacity:.92;font-size:.94rem;}
+  .invite li{margin-bottom:6px;}
+  .invite .price{margin-top:18px;font-size:.9rem;color:var(--bg);opacity:.85;}
+
+  .sign{padding:36px 56px 48px;text-align:center;}
+  .sign .flourish{color:var(--accent-soft);font-size:1.3rem;}
+  .sign .by{font-family:var(--serif);font-size:1.25rem;color:var(--ink);margin-top:10px;}
+  .sign .loc{font-size:.82rem;color:var(--ink-soft);margin-top:4px;letter-spacing:.04em;}
+
+  .assump{font-size:.82rem;color:var(--ink-soft);font-style:italic;margin-top:8px;}
+
+  .quote{border-left:3px solid var(--accent-soft);padding:12px 20px;margin:16px 0;background:var(--bg-alt);border-radius:0 10px 10px 0;font-style:italic;color:var(--ink);font-size:.92rem;}
+  .quote cite{font-size:.74rem;color:var(--ink-soft);margin-top:6px;display:block;font-style:normal;letter-spacing:.04em;}
+
+  @media print{
+    body{background:#fff;}
+    .page{max-width:none;}
+    section,.win,.invite,.cover{break-inside:avoid;}
+    @page{size:A4;margin:14mm;}
+  }
+  @media (max-width:600px){ .pad,.cover,.brandbar,.sign{padding-left:22px;padding-right:22px;} }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="brandbar">
+    <div class="brand"><span class="spark">✧</span>Sommelier de IA</div>
+    <div class="tag">[[LABEL_SERVICO]]</div>
+  </div>
+
+  <!-- CAPA -->
+  <div class="cover">
+    <div class="eyebrow">[[LABEL_SERVICO]]</div>
+    <h1>[[TITULO_CURTO<br>ex.: Um primeiro passo<br><span class="accent">para ganhar tempo]]</span></h1>
+    <p class="for">Preparado para <strong>[[NOME_DO_CLIENTE_OU_EMPRESA]]</strong></p>
+    <p class="date">[[DATA]]</p>
+  </div>
+
+  <!-- O QUE EU OUVI -->
+  <section><div class="pad">
+    <div class="sec-head"><div class="eyebrow">O nosso ponto de partida</div><h2>O que eu ouvi</h2></div>
+    <p class="lead">[[RESUMO_DA_DOR_EM_2_A_4_FRASES]]</p>
+  </div></section>
+
+  <!-- GANHOS RÁPIDOS (1 a 2) - com 1 linha de contraste 🌱 -->
+  <section><div class="pad">
+    <div class="sec-head"><div class="eyebrow">Dá para começar já</div><h2>Seu ganho rápido</h2></div>
+
+    <!-- REPETÍVEL: win (use 1 ou 2 - nunca mais que 2) -->
+    <div class="win">
+      <div class="wn">Ganho rápido 01</div>
+      <div class="pain">[[DOR_ATUAL_EM_UMA_FRASE]]</div>
+      <div class="fix">[[SOLUÇÃO_SIMPLES]] usando <b>[[FERRAMENTA_QUE_ELE_JÁ_TEM_OU_PEGA_GRÁTIS]]</b>.</div>
+      <!-- Contraste 🌱 - 1 linha, só Simplicidade Radical -->
+      <div class="contrast-line">🌱 Alternativa mais simples: [[SIMPLES_CONTRASTE_1_LINHA]]</div>
+      <div class="first"><span class="k">Primeiro passo</span>[[PRIMEIRO_PASSO_CONCRETO_EM_1_2_LINHAS]]</div>
+    </div>
+    <!-- /REPETÍVEL -->
+
+    <p class="assump">[[OPCIONAL: suposição explícita]]</p>
+  </div></section>
+
+  <!-- POR ONDE COMEÇAR -->
+  <section><div class="pad">
+    <div class="sec-head"><div class="eyebrow">Se for testar uma coisa só</div><h2>Por onde começar esta semana</h2></div>
+    <div class="start"><div class="k">Comece por aqui</div><p>[[O_PRIMEIRISSIMO_PASSO_EM_1_A_3_LINHAS]]</p></div>
+  </div></section>
+
+  <!-- CONVITE AOS SERVIÇOS PAGOS -->
+  <section><div class="pad">
+    <div class="start" style="margin-bottom:24px;">
+      <div class="k">Por que comecei pelo simples</div>
+      <p>Os ganhos acima foram escolhidos pra você aplicar sozinho ainda hoje. É intencional: meu método é começar pelo que é mais simples. Se o simples resolve, você economizou tempo sem gastar nada. Se quiser explorar outras camadas, incluindo IA quando fizer sentido. O Encorpado mostra cada alternativa pra você comparar e decidir.</p>
+    </div>
+    <div class="invite">
+      <div class="eyebrow">Se você quiser ir além</div>
+      <h3>Três caminhos para continuar</h3>
+      <p>O próximo passo depende do que fizer mais sentido agora:</p>
+      <ul>
+        <li><b>Encorpado</b> ([[PRECO_ENCORPADO]]): a ficha de degustação completa com matriz de prioridades, 3 a 7 ferramentas com contraste de abordagens, rotina diária, primeiros resultados em 4 dias e projeção de ROI.</li>
+        <li><b>Concierge</b> (R$ [[PRECO_CONCIERGE_MENSAL]]/mês). Acompanhamento contínuo para implementar e ajustar as soluções ao longo do mês. 2 sessões mensais, hub de conhecimento e prioridade em dúvidas.</li>
+        <li><b>Complexo</b> (a combinar): para times. Mapeamento de fluxos coletivos e plano de adoção com marcos realistas.</li>
+      </ul>
+      <div class="price">Seu investimento no <b>Encorpado</b> (R$ [[PRECO_ENCORPADO]]) é integralmente aplicado no Concierge ou no Complexo: você não paga duas vezes pela degustação. Sem pressão. O convite fica de pé quando fizer sentido para você.</div>
+    </div>
+  </div></section>
+
+  <!-- ASSINATURA -->
+  <div class="sign">
+    <div class="flourish">✧</div>
+    <div class="by">Sob medida, Cali</div>
+    <div class="loc">Brasil · Sommelier de IA</div>
+  </div>
+
+</div>
+</body>
+</html>
