@@ -18,7 +18,7 @@ are intentionally absent here.
 
 - **Hand-curated here**: `substack-publish` · `writing-style` (personal plugins)
 - **Synced from the Mac hub**: `cali-*` coding/ops/social families
-- **Third-party**: `last30days` · `pocketbase` · `landing-page-evaluator`
+- **Third-party**: `last30days` · `pocketbase` · `landing-page-evaluator` · `first-reader` (vendored, Apache-2.0; `anti-ai-slop-writing` is runtime-fetched, unlicensed upstream)
 
 **No credentials ever.** Skills that need runtime values read them from
 `~/.secrets/<tool>.env` on each host and print a guided setup when missing

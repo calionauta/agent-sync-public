@@ -156,7 +156,7 @@ drafting.
 ## Rules
 
 - **Never publish without explicit user confirmation.**
-- **Published body leads with the §20 attribution block** (from `writing-style` v1.6):
+- **Published body leads with the §20 attribution block** (from `writing-style` v2.0):
   a top blockquote on behalf of the owner — EN `> Posted on behalf of [@calionauta](https://github.com/calionauta) (AI-assisted preparation and publishing)` / PT `> Publicado em nome de [@calionauta](https://github.com/calionauta) (preparação e publicação assistidas por IA)`. No "draft" wording on published posts. Put it first, even before the title, when the platform supports it.
 - Only report what the tool returns; never fabricate draft ids, slugs, status.
 - If a call fails 401/403: the Substack session token likely expired —
