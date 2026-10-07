@@ -68,6 +68,15 @@ Captures run back-to-back as fast as the machine allows; assembly uses the
 measured effective rate, so the video stays real-time on fast and slow
 machines alike. No `fps` to tune.
 
+## First frame (no blank openings)
+
+Capture starts after the first navigation settles (or after the first step
+in gotoless playbooks), so takes and GIFs open on the loaded page — never on
+`about:blank`. When embedding a take in a page, still set an explicit poster
+(`poster="thumb.jpg"`, extracted with
+`ffmpeg -i take.mp4 -frames:v 1 thumb.jpg`): no player shows a black flash
+before metadata loads, on any connection.
+
 ## Re-running after a UI change
 
 1. `record.mjs --rehearse` against the new UI. It stops at the first broken

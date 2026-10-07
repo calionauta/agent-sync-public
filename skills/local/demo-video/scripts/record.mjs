@@ -299,15 +299,18 @@ async function el(sess, target) {
       : new RegExp(`\\b${want.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(label) ? 1 : 2;
     return { c, i, score };
   }).sort((a, b) => (a.score - b.score) || (a.c.label.length - b.c.label.length) || (a.i - b.i));
+  // Two answers: `best` ignores coverage (scrolling to and waiting for a
+  // covered element is perfectly fine), `open` is the clickable one. Clicks
+  // and typing require `open`; anything else uses `best`. Collapsing the two
+  // is how takes silently scrolled nowhere: a covered best match resolved to
+  // an undefined ref and every check after it passed on nothing.
+  const best = scored[0].c;
   const open = scored.map((s) => s.c).find((c) => !c.coveredBy) ?? null;
   if (open) {
     const skipped = list.filter((c) => c.coveredBy).length;
     if (skipped > 0) open.skippedCovered = skipped;
   }
-  if (!open) {
-    return { coveredNote: list[0].coveredBy, label: list[0].label, allCovered: true };
-  }
-  return open;
+  return { best, open };
 }
 async function glide(sess, x, y) {
   await sess.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
@@ -338,6 +341,10 @@ async function runStep(sess, ctx, step) {
       await sess.send('Page.navigate', { url });
       await sleep(step.settle ?? 2500);
       await evaluate(sess, CURSOR_JS);
+      // Footage starts on a loaded page, never on about:blank: the first
+      // frames of every take used to be white, which is also what viewers
+      // saw as a "blank thumbnail" before pressing play.
+      if (!ctx.rehearse) await ctx.startCapture();
       log(true, url);
       return;
     }
@@ -356,18 +363,20 @@ async function runStep(sess, ctx, step) {
     case 'click':
     case 'type':
     case 'waitFor': {
-      const found = await el(sess, step);
-      if (!found) return fail(sess, ctx.out, 'target not found', step);
-      if (found.allCovered) {
-        return fail(sess, ctx.out, `target covered by ${found.coveredNote}`, step);
+      const resolved = await el(sess, step);
+      if (!resolved) return fail(sess, ctx.out, 'target not found', step);
+      if (step.do === 'waitFor') { log(true, resolved.best.label); return; }
+      const found = resolved.open;
+      if (!found) {
+        return fail(sess, ctx.out, `target covered by ${resolved.best.coveredBy || 'overlay'}`, step);
       }
-      if (step.do === 'waitFor') { log(true, found.label); return; }
       await sess.send('Runtime.evaluate', { expression: `(() => { const el = window.__demoEls[${JSON.stringify(found.ref)}]; el && el.scrollIntoView({ behavior: 'smooth', block: 'center' }); return !!el; })()` });
       await sleep(600);
       // Re-measure AFTER the scroll settles: smooth scrolling moves the
       // target, and clicking pre-scroll coordinates lands on whatever slid
       // underneath. This exact miss shipped a "button does nothing" take.
-      const fresh = await el(sess, step);
+      const again = await el(sess, step);
+      const fresh = again?.open;
       if (!fresh) return fail(sess, ctx.out, 'target moved away during scroll', step);
       const at = `@${Math.round(fresh.x)},${Math.round(fresh.y)} ${Math.round(fresh.w)}x${Math.round(fresh.h)}`;
       // The glide is deliberately slow (~600ms): at capture rates the whole
@@ -410,13 +419,35 @@ async function runStep(sess, ctx, step) {
     case 'sleep': await sleep(step.ms); log(true, `${step.ms}ms`); return;
     case 'scroll': {
       if (step.selector) {
-        const found = await el(sess, { selector: step.selector });
+        // Coverage is irrelevant here: scrolling TO a covered element is
+        // exactly how it gets uncovered.
+        const resolved = await el(sess, { selector: step.selector });
+        const found = resolved?.best;
         if (!found) return fail(sess, ctx.out, 'scroll target not found', step);
-        await evaluate(sess, `window.__demoEls[${JSON.stringify(found.ref)}].scrollIntoView({ behavior: 'smooth', block: 'center' })`);
+        const doScroll = (smooth) =>
+          evaluate(sess, `(() => { const el = window.__demoEls[${JSON.stringify(found.ref)}]; if (!el) return 'gone'; el.scrollIntoView({ ${smooth ? "behavior: 'smooth', " : ''}block: 'center' }); return 'ok'; })()`);
+        await doScroll(true);
+        await sleep(1200);
+        // Headless compositors sometimes never animate the smooth scroll
+        // (no frames while idle): verify the landing spot and jump if needed.
+        // A scroll that silently does nothing is how takes end up parked on
+        // the hero while the subtitles tour the page.
+        const off = await evaluate(sess, `(() => {
+          const el = window.__demoEls[${JSON.stringify(found.ref)}];
+          if (!el) return -1;
+          const r = el.getBoundingClientRect();
+          return Math.abs((r.top + r.bottom) / 2 - window.innerHeight / 2);
+        })()`);
+        if (off === -1) return fail(sess, ctx.out, 'scroll target vanished', step);
+        if (typeof off === 'number' && off > 120) {
+          console.error(`scroll needed a jump (off by ${Math.round(off)}px)`);
+          await doScroll(false);
+          await sleep(600);
+        }
       } else {
         await evaluate(sess, `window.scrollTo({ top: ${step.y ?? 400}, behavior: 'smooth' })`);
+        await sleep(1200);
       }
-      await sleep(1200);
       log(true);
       return;
     }
@@ -504,11 +535,12 @@ flags: --chrome PATH --ffmpeg PATH --profile DIR --base URL --headed`);
 
   const ctx = {
     out, base: arg('base', ''), log: [],
-    armDownload: null, followPopup: null,
+    armDownload: null, followPopup: null, rehearse,
   };
   let sess;
   let frames = [];
   let capturing = false;
+  let captureOn = false;
   let captureStart = 0;
   let mainTargetId = null;
   // Screenshots ride their own connection per target: the journey session
@@ -594,6 +626,8 @@ flags: --chrome PATH --ffmpeg PATH --profile DIR --base URL --headed`);
     // more, and an interval just skips ticks (timelapse). The loop records
     // per-frame timestamps and assembly uses the MEASURED rate, so the video
     // stays real-time however fast the machine is.
+    if (captureOn) return;
+    captureOn = true;
     capturing = true;
     captureStart = Date.now();
     (async () => {
@@ -625,9 +659,13 @@ flags: --chrome PATH --ffmpeg PATH --profile DIR --base URL --headed`);
     if (secs <= 0) return 8;
     return Math.min(24, Math.max(2, frames.length / secs));
   }
-  if (!rehearse) await startCapture();
-
-  for (const step of pb.steps) await runStep(sess, ctx, step);
+  ctx.startCapture = startCapture;
+  for (let si = 0; si < pb.steps.length; si++) {
+    const step = pb.steps[si];
+    // Playbooks without a goto still start on something, never on blank.
+    if (!rehearse && !captureOn && si > 0) await startCapture();
+    await runStep(sess, ctx, step);
+  }
   // Hold the final frame so the ending breathes.
   await sleep(2500);
   if (!rehearse) {
