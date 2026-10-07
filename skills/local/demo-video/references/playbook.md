@@ -43,8 +43,10 @@ Resolution order for targets: explicit `selector` first, then `role` + `name`,
 then `text` (visible-text substring), then `label` (placeholder/aria-label for
 `type`). Among matches the best accessible-name match wins (exact, then
 whole-word, then substring; shortest breaks ties) and a twin hidden behind a
-modal backdrop is skipped, never clicked through the overlay. Rehearsal
-reports which rule matched each step.
+modal backdrop is skipped, never clicked through the overlay. Clicks and
+typing require an uncovered target; `scroll` and `waitFor` deliberately use
+the best match regardless of coverage — scrolling to a covered element is
+how it gets uncovered. Rehearsal reports which rule matched each step.
 
 ## Pacing defaults (baked into the driver, overridable per step)
 
@@ -64,9 +66,25 @@ the subtitle when the choice matters.
 
 ## Frame rate
 
-Captures run back-to-back as fast as the machine allows; assembly uses the
-measured effective rate, so the video stays real-time on fast and slow
-machines alike. No `fps` to tune.
+Captures run back-to-back as fast as the machine allows; assembly carries
+per-frame measured durations through the concat demuxer, so pacing stays
+exact on fast and slow machines alike — no single fps is assumed, and rate
+variance never turns into timelapse in one half and slow motion in the other.
+No `fps` to tune.
+
+## Reliability rules (baked into the driver)
+
+- Every CDP send carries a timeout: a renderer-stalled request rejects
+  instead of hanging its caller forever (an orphaned pending entry is how
+  takes used to die mid-run with zero output).
+- Failures kill the browser: no orphaned headless instances pile up after a
+  failed take.
+- Clicks re-measure coordinates after the scroll settles; smooth scrolling
+  moves the target.
+- Scrolls verify the landing spot and jump if the smooth animation never ran;
+  a vanished ref fails loudly instead of parking the take on the hero.
+- Capture starts after the first navigation settles — takes never open on
+  `about:blank` (see "First frame" above).
 
 ## First frame (no blank openings)
 

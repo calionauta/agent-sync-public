@@ -209,11 +209,18 @@ const FIND_JS = `(() => {
     const cx = kept.x + kept.w / 2, cy = kept.y + kept.h / 2;
     let cover = '';
     try {
-      const top = document.elementFromPoint(cx, cy);
-      if (!(top && (top === el || el.contains(top)))) {
-        cover = top
-          ? (top.tagName.toLowerCase() + '.' + (top.className || '').toString().slice(0, 40))
-          : 'nothing';
+      const vw = window.innerWidth, vh = window.innerHeight;
+      if (cx < 0 || cy < 0 || cx > vw || cy > vh) {
+        cover = 'outside viewport (' + Math.round(cx) + ',' + Math.round(cy) + ' in ' + vw + 'x' + vh + ')';
+      } else {
+        const top = document.elementFromPoint(cx, cy);
+        if (!(top && (top === el || el.contains(top)))) {
+          // Kept verbatim (not normalized to "covered"): when the hit test
+          // returns nothing, the point and viewport size are the debug info.
+          cover = top
+            ? (top.tagName.toLowerCase() + '.' + (top.className || '').toString().slice(0, 40))
+            : 'no hit-test target at (' + Math.round(cx) + ',' + Math.round(cy) + ') in ' + vw + 'x' + vh;
+        }
       }
     } catch { cover = 'unknown'; }
     kept.coveredBy = cover;
