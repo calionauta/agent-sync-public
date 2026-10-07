@@ -27,7 +27,8 @@ whole point — narration lives in `subtitle` steps, never in prose around it.
 | `goto` | `url` | Re-injects cursor + subtitle bar (navigation destroys overlays). |
 | `click` | `selector` **or** (`role` + `name`) **or** `text` | `role` is an ARIA role (`button`, `tab`, `textbox`…), `name` a substring of the accessible name. Scrolls into view, glides the mouse, clicks. `expectPopup: true` follows a `window.open` popup and keeps recording there. |
 | `type` | `label` (placeholder/aria-label substring) **or** `selector`, `text`, `cps` (chars/sec, default 12) | Clicks the field first, clears it, types visibly. |
-| `press` | `key` (`Enter`, `Escape`, `Tab`…) | Sent to the focused element. |
+| `press` | `key` **or** `chord: ["Alt", "Tab"]` | Real key events (chords hold/reverse); named keys flash a pill, plain characters stay silent. |
+| `keys` | `text` | Display-only: narrates a shortcut without pressing it ("Alt + Tab" over a window switch the driver performs by retargeting). |
 | `waitFor` | `selector`/`role`+`name`/`text`, `timeout` (default 6000) | Fails the take when it times out — a missing element must never eat 30s silently. |
 | `sleep` | `ms` | Breathing room so a human can read the result. |
 | `scroll` | `y` **or** `selector` | Smooth scroll, then settles. |
@@ -63,6 +64,22 @@ open-vanish beat reads as share-then-unshare, which is worse than no popup.
 Native `<select>` changes land without the menu ever opening (OS-level popup,
 unrecordable headless): the viewer sees the value change, so narrate it in
 the subtitle when the choice matters.
+
+## Mouse (ghost-cursor style, zero dependencies)
+
+Clicks travel a quadratic Bézier (control point on one side only), ease
+in-out, land in the central 60% (never the exact pixel), overshoot past 500px
+and settle back, over Fitts-ish timing (~600–900ms) — the recipe from
+`ghost-cursor`, reimplemented over CDP so no package is needed. The walk must
+span several capture frames or the cursor teleports.
+
+## Captions (readability rules)
+
+Floating centered pill above the player chrome (bottom ~52px, capped width,
+19px semibold, dark pill + hairline border) — never a bottom bar, which
+players and app footers both cover. Corner pill (top-right) for named keys
+only. Under-60-char chapters in `Step N — …` form; clear with an empty
+subtitle wherever the UI must speak alone.
 
 ## Frame rate
 

@@ -240,7 +240,10 @@ const CURSOR_JS = `(() => {
   }, { passive: true });
   const bar = document.createElement('div');
   bar.id = 'demo-subtitle';
-  bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483646;text-align:center;padding:12px 24px;background:rgba(0,0,0,.78);color:#fff;font:500 17px/1.4 system-ui,sans-serif;letter-spacing:.3px;opacity:0;transition:opacity .3s;pointer-events:none';
+  // Floating pill, not a bottom bar: player chrome (progress, buttons) eats
+  // the lowest ~40px, and app footers/toolbars live down there too. Centered,
+  // capped width, 19px semibold — readable on a phone without muting the UI.
+  bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:52px;z-index:2147483646;max-width:min(860px,86%);text-align:center;padding:10px 22px;border-radius:14px;background:rgba(0,0,0,.82);color:#fff;font:600 19px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.2px;border:1px solid rgba(255,255,255,.14);box-shadow:0 4px 18px rgba(0,0,0,.35);opacity:0;transition:opacity .3s;pointer-events:none';
   document.body.appendChild(bar);
   // Click ripple + key pill: the viewer should never wonder what was pressed.
   // The ring blooms where the click lands; named keys (Enter, Esc, arrows…)
@@ -249,7 +252,7 @@ const CURSOR_JS = `(() => {
   const css = document.createElement('style');
   css.id = 'demo-fx';
   css.textContent = '@keyframes demoRipple{from{transform:translate(-50%,-50%) scale(.3);opacity:.9}to{transform:translate(-50%,-50%) scale(1);opacity:0}}'
-    + '#demo-key{position:fixed;right:14px;bottom:64px;z-index:2147483646;padding:7px 13px;border-radius:10px;background:rgba(0,0,0,.78);color:#fff;font:600 14px/1.2 system-ui,sans-serif;letter-spacing:.3px;opacity:0;transition:opacity .25s;pointer-events:none;border:1px solid rgba(255,255,255,.25)}';
+    + '#demo-key{position:fixed;right:14px;top:14px;z-index:2147483646;padding:8px 14px;border-radius:10px;background:rgba(0,0,0,.82);color:#fff;font:600 15px/1.2 system-ui,sans-serif;letter-spacing:.3px;opacity:0;transition:opacity .25s;pointer-events:none;border:1px solid rgba(255,255,255,.25);box-shadow:0 4px 14px rgba(0,0,0,.3)}';
   document.head.appendChild(css);
   const key = document.createElement('div');
   key.id = 'demo-key';
@@ -257,18 +260,22 @@ const CURSOR_JS = `(() => {
   let keyTimer = null;
   window.__demoRipple = (x, y) => {
     const r = document.createElement('div');
-    r.style.cssText = 'position:fixed;left:' + x + 'px;top:' + y + 'px;width:44px;height:44px;border-radius:50%;border:3px solid #f59e0b;z-index:2147483647;pointer-events:none;animation:demoRipple .55s ease-out forwards';
+    r.style.cssText = 'position:fixed;left:' + x + 'px;top:' + y + 'px;width:44px;height:44px;border-radius:50%;border:3px solid #f59e0b;z-index:2147483647;pointer-events:none;animation:demoRipple .9s ease-out forwards';
     document.body.appendChild(r);
-    setTimeout(() => r.remove(), 650);
+    setTimeout(() => r.remove(), 950);
   };
   const NAMES = { Enter: '⏎ Enter', Escape: 'Esc', Tab: 'Tab ↹', Backspace: '⌫ Apagar', Delete: 'Del', ' ': 'Espaço', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Home: 'Home', End: 'End', PageUp: 'PgUp', PageDown: 'PgDn' };
-  window.__demoKey = (k) => {
-    const label = NAMES[k];
+  // Named keys resolve to friendly labels; multi-word text passes through
+  // verbatim (chords like "Alt + Tab" narrated by the keys verb); anything
+  // else (a letter being typed) is ignored — the character already appears
+  // in the field, echoing it would double the noise.
+  window.__demoKey = (k, ms) => {
+    const label = NAMES[k] || (/[ +]/.test(k || '') ? k : null);
     if (!label) return;
     key.textContent = label;
     key.style.opacity = '1';
     if (keyTimer) clearTimeout(keyTimer);
-    keyTimer = setTimeout(() => { key.style.opacity = '0'; }, 1200);
+    keyTimer = setTimeout(() => { key.style.opacity = '0'; }, ms || 1600);
   };
   return 'ok';
 })()`;
@@ -386,17 +393,50 @@ async function runStep(sess, ctx, step) {
       const fresh = again?.open;
       if (!fresh) return fail(sess, ctx.out, 'target moved away during scroll', step);
       const at = `@${Math.round(fresh.x)},${Math.round(fresh.y)} ${Math.round(fresh.w)}x${Math.round(fresh.h)}`;
-      // The glide is deliberately slow (~600ms): at capture rates the whole
-      // point is that frames land mid-glide, so the viewer sees the cursor
-      // WALK. A 150ms glide fits between two frames and reads as a teleport.
+      // Human glide, ghost-cursor style: quadratic Bézier with the control
+      // point on ONE side of the line (both sides looks wonky), ease in-out
+      // along it, landing somewhere in the central 60% (hands don't snipe the
+      // center pixel), overshoot-and-settle past 500px, Fitts-ish timing.
+      // ~600-900ms of travel so capture frames land mid-glide and the viewer
+      // sees the cursor WALK instead of teleport.
+      const from = ctx.mouse ?? { x: 0, y: 0 };
       const cx = fresh.x + fresh.w / 2, cy = fresh.y + fresh.h / 2;
-      for (let i = 1; i <= 12; i++) {
-        await glide(sess, cx * (i / 12) + 4 * (1 - i / 12), cy * (i / 12));
-        await sleep(50);
+      const dx = cx - from.x, dy = cy - from.y;
+      const dist = Math.hypot(dx, dy);
+      let lx = cx, ly = cy;
+      if (dist > 4) {
+        const tx = cx + (Math.random() - 0.5) * fresh.w * 0.4;
+        const ty = cy + (Math.random() - 0.5) * fresh.h * 0.4;
+        const side = Math.random() < 0.5 ? 1 : -1;
+        const spread = Math.min(120, dist * 0.18);
+        const qx = (from.x + tx) / 2 + (-dy / dist) * spread * side;
+        const qy = (from.y + ty) / 2 + (dx / dist) * spread * side;
+        const dur = Math.min(900, 380 + dist * 0.55);
+        const steps = Math.max(10, Math.min(22, Math.round(dur / 45)));
+        for (let i = 1; i <= steps; i++) {
+          const t = i / steps;
+          const e = 0.5 - 0.5 * Math.cos(Math.PI * t);
+          await glide(sess,
+            (1 - e) * (1 - e) * from.x + 2 * (1 - e) * e * qx + e * e * tx,
+            (1 - e) * (1 - e) * from.y + 2 * (1 - e) * e * qy + e * e * ty);
+          await sleep(dur / steps);
+        }
+        if (dist > 500) {
+          // Overshoot past the target, then correct back — the tell of a hand.
+          await glide(sess, tx + (tx - qx) * 0.07, ty + (ty - qy) * 0.07);
+          await sleep(70);
+          await glide(sess, tx, ty);
+          await sleep(60);
+        }
+        lx = tx; ly = ty;
+      } else {
+        await glide(sess, cx, cy);
+        await sleep(120);
       }
-      await sess.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: cx, y: cy, button: 'left', clickCount: 1 });
-      await sess.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: cx, y: cy, button: 'left', clickCount: 1 });
-      await evaluate(sess, `window.__demoRipple && window.__demoRipple(${Math.round(cx)}, ${Math.round(cy)})`);
+      ctx.mouse = { x: lx, y: ly };
+      await sess.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: lx, y: ly, button: 'left', clickCount: 1 });
+      await evaluate(sess, `window.__demoRipple && window.__demoRipple(${Math.round(lx)}, ${Math.round(ly)})`);
+      await sess.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: lx, y: ly, button: 'left', clickCount: 1 });
       if (step.do === 'click') {
         await sleep(step.settle ?? 800);
         if (step.expectPopup) await ctx.followPopup();
@@ -416,11 +456,29 @@ async function runStep(sess, ctx, step) {
       return;
     }
     case 'press': {
-      await sess.send('Input.dispatchKeyEvent', { type: 'keyDown', key: step.key, code: step.key });
-      await sess.send('Input.dispatchKeyEvent', { type: 'keyUp', key: step.key, code: step.key });
-      await evaluate(sess, `window.__demoKey && window.__demoKey(${JSON.stringify(step.key)})`);
+      // `chord: ["Alt", "Tab"]` holds modifiers in order and releases in
+      // reverse, showing "Alt + Tab" while it does. Single keys show their
+      // friendly pill (Enter, Esc, arrows); plain characters stay silent.
+      const KEYCODES = { Alt: 'AltLeft', Control: 'ControlLeft', Ctrl: 'ControlLeft', Shift: 'ShiftLeft', Meta: 'MetaLeft' };
+      const chord = step.chord ?? [step.key];
+      for (const k of chord) {
+        await sess.send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code: KEYCODES[k] ?? k });
+      }
+      await evaluate(sess, `window.__demoKey && window.__demoKey(${JSON.stringify(chord.join(' + '))}, 2000)`);
+      for (const k of [...chord].reverse()) {
+        await sess.send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code: KEYCODES[k] ?? k });
+      }
       await sleep(step.settle ?? 500);
-      log(true, step.key);
+      log(true, chord.join(' + '));
+      return;
+    }
+    case 'keys': {
+      // Display-only: narrates a shortcut the automation doesn't (or can't)
+      // press itself — e.g. announcing "Alt + Tab" over a window switch the
+      // driver performs by retargeting. 2.2s on screen, then fades.
+      await evaluate(sess, `window.__demoKey && window.__demoKey(${JSON.stringify(step.text)}, 2200)`);
+      await sleep(1200);
+      log(true, step.text);
       return;
     }
     case 'sleep': await sleep(step.ms); log(true, `${step.ms}ms`); return;
