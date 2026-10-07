@@ -237,7 +237,9 @@ const CURSOR_JS = `(() => {
   document.body.appendChild(c);
   document.addEventListener('mousemove', (e) => {
     c.style.left = e.clientX + 'px'; c.style.top = e.clientY + 'px';
+    window.__demoMouse = { x: e.clientX, y: e.clientY };
   }, { passive: true });
+  window.__demoMouse = window.__demoMouse || { x: 0, y: 0 };
   const bar = document.createElement('div');
   bar.id = 'demo-subtitle';
   // Floating pill, not a bottom bar: player chrome (progress, buttons) eats
@@ -252,7 +254,7 @@ const CURSOR_JS = `(() => {
   const css = document.createElement('style');
   css.id = 'demo-fx';
   css.textContent = '@keyframes demoRipple{from{transform:translate(-50%,-50%) scale(.3);opacity:.9}to{transform:translate(-50%,-50%) scale(1);opacity:0}}'
-    + '#demo-key{position:fixed;right:14px;top:14px;z-index:2147483646;padding:8px 14px;border-radius:10px;background:rgba(0,0,0,.82);color:#fff;font:600 15px/1.2 system-ui,sans-serif;letter-spacing:.3px;opacity:0;transition:opacity .25s;pointer-events:none;border:1px solid rgba(255,255,255,.25);box-shadow:0 4px 14px rgba(0,0,0,.3)}';
+    + '#demo-key{position:fixed;left:14px;top:14px;z-index:2147483646;padding:8px 14px;white-space:nowrap;border-radius:10px;background:rgba(0,0,0,.82);color:#fff;font:600 15px/1.2 system-ui,sans-serif;letter-spacing:.3px;opacity:0;transition:opacity .25s;pointer-events:none;border:1px solid rgba(255,255,255,.25);box-shadow:0 4px 14px rgba(0,0,0,.3)}';
   document.head.appendChild(css);
   const key = document.createElement('div');
   key.id = 'demo-key';
@@ -265,13 +267,18 @@ const CURSOR_JS = `(() => {
     setTimeout(() => r.remove(), 950);
   };
   const NAMES = { Enter: '⏎ Enter', Escape: 'Esc', Tab: 'Tab ↹', Backspace: '⌫ Apagar', Delete: 'Del', ' ': 'Espaço', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Home: 'Home', End: 'End', PageUp: 'PgUp', PageDown: 'PgDn' };
-  // Named keys resolve to friendly labels; multi-word text passes through
-  // verbatim (chords like "Alt + Tab" narrated by the keys verb); anything
-  // else (a letter being typed) is ignored — the character already appears
-  // in the field, echoing it would double the noise.
+  // Key pill follows the cursor: research (KeyCastr Mouseposé-style, Screenify
+  // cursor pairing) shows cause and effect land together, while center-screen
+  // badges cover the content and fixed corners get cropped or missed. The pill
+  // anchors near the pointer with viewport clamping, so it reads wherever the
+  // action is. Plain characters stay silent (shortcuts-only mode); chords and
+  // named keys show 1.6–2.2s — the 2026 consensus for tutorial pacing.
   window.__demoKey = (k, ms) => {
     const label = NAMES[k] || (/[ +]/.test(k || '') ? k : null);
     if (!label) return;
+    const m = window.__demoMouse || { x: 0, y: 0 };
+    key.style.left = Math.max(8, Math.min(m.x + 20, window.innerWidth - 170)) + 'px';
+    key.style.top = Math.max(8, Math.min(m.y + 28, window.innerHeight - 60)) + 'px';
     key.textContent = label;
     key.style.opacity = '1';
     if (keyTimer) clearTimeout(keyTimer);
@@ -354,6 +361,17 @@ async function runStep(sess, ctx, step) {
       const url = step.url.startsWith('http') ? step.url : (ctx.base || '') + step.url;
       await sess.send('Page.navigate', { url });
       await sleep(step.settle ?? 2500);
+      // Warmup: early footage is choppy because the fresh browser is still
+      // JIT-ing, opening IndexedDB and streaming webfonts — later stretches
+      // run at full rate once everything is warm. Waiting on fonts (bounded)
+      // lifts the cold-start rate instead of recording through the jank.
+      // NOTE: awaitPromise, not the evaluate() helper: a bare returnByValue
+      // on a Promise resolves immediately without waiting.
+      await sess.send('Runtime.evaluate', {
+        expression: `Promise.race([document.fonts ? document.fonts.ready : Promise.resolve(), new Promise((r) => setTimeout(r, 4000))])`,
+        awaitPromise: true,
+        returnByValue: true,
+      });
       await evaluate(sess, CURSOR_JS);
       // Footage starts on a loaded page, never on about:blank: the first
       // frames of every take used to be white, which is also what viewers
@@ -434,8 +452,13 @@ async function runStep(sess, ctx, step) {
         await sleep(120);
       }
       ctx.mouse = { x: lx, y: ly };
-      await sess.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: lx, y: ly, button: 'left', clickCount: 1 });
+      // Ripple FIRST, then a beat, then the press: the ring must already be
+      // blooming when the UI changes, or the viewer sees the effect and has
+      // to rewind mentally to find the cause. Firing after mouseReleased is
+      // how takes shipped "action first, ripple later".
       await evaluate(sess, `window.__demoRipple && window.__demoRipple(${Math.round(lx)}, ${Math.round(ly)})`);
+      await sleep(150);
+      await sess.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: lx, y: ly, button: 'left', clickCount: 1 });
       await sess.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: lx, y: ly, button: 'left', clickCount: 1 });
       if (step.do === 'click') {
         await sleep(step.settle ?? 800);

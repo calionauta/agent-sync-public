@@ -56,9 +56,13 @@ After navigation 2.5s · after a click 0.8s · after typing 0.5s ·
 Typing at 12 chars/s reads as human without boring anyone.
 Clicks glide ~600ms to the target: the walk must span several capture frames,
 or the cursor teleports between frames and the viewer loses the thread.
-Every click blooms an amber ring where it lands, and named keys (Enter, Esc,
-arrows…) flash a corner pill — both automatic, no playbook changes needed.
-Typed characters are never echoed: the text already appears in the field.
+Every click blooms an amber ring where it lands — fired with the press after
+a 150ms beat, so the ring is already blooming when the UI changes (firing
+after release is how takes shipped "action first, ripple later"). Named keys
+(Enter, Esc, arrows…) and chords flash a pill anchored near the cursor, where
+the action is — never center-screen over the content, never a fixed corner
+the viewer learns to ignore. Typed characters are never echoed: the text
+already appears in the field.
 Popup dwells hold 3–4s minimum with a subtitle naming the other side — an
 open-vanish beat reads as share-then-unshare, which is worse than no popup.
 Native `<select>` changes land without the menu ever opening (OS-level popup,
@@ -101,7 +105,9 @@ No `fps` to tune.
 - Scrolls verify the landing spot and jump if the smooth animation never ran;
   a vanished ref fails loudly instead of parking the take on the hero.
 - Capture starts after the first navigation settles — takes never open on
-  `about:blank` (see "First frame" above).
+  `about:blank` (see "First frame" above). The goto also waits on webfonts
+  (bounded): cold-start footage is choppy because the fresh browser is still
+  JIT-ing and streaming fonts, and warming first lifts the early rate.
 
 ## First frame (no blank openings)
 
