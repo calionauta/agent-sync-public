@@ -389,6 +389,11 @@ async function runStep(sess, ctx, step) {
     }
     case 'followPopup': await ctx.followPopup(); log(true, 'popup'); return;
     case 'main': await ctx.backToMain(); log(true, 'main'); return;
+    case 'closePopups': {
+      const n = await ctx.closePopups();
+      log(true, `${n} closed`);
+      return;
+    }
     case 'close': {
       // Closing the page destroys its own execution context, so the response
       // to the close call never comes back. Fire and forget by design — ever
@@ -455,6 +460,10 @@ flags: --chrome PATH --ffmpeg PATH --profile DIR --base URL --headed`);
   const child = spawn(chrome, [
     `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, '--no-sandbox',
     ...headlessFlag,
+    // Popups must open deterministically: headless Chrome blocks window.open
+    // without transient activation, and synthetic clicks don't reliably
+    // provide it. Demos click real buttons; the blocker only adds flakiness.
+    '--disable-popup-blocking',
     '--disable-gpu', `--window-size=${pb.viewport?.width ?? 1280},${pb.viewport?.height ?? 720}`, 'about:blank',
   ], { stdio: 'ignore' });
   globalThis.__demoChild = child;
@@ -469,6 +478,22 @@ flags: --chrome PATH --ffmpeg PATH --profile DIR --base URL --headed`);
   let capturing = false;
   let captureStart = 0;
   let mainTargetId = null;
+  // Screenshots ride their own connection per target: the journey session
+  // switches targets (popup/main) and must never be closed or shared with
+  // the capture loop mid-flight. One cached shot-connection per target.
+  const shotConns = new Map();
+  let capTargetId = null;
+  async function shotConn(id) {
+    if (!shotConns.has(id)) {
+      const ts = await httpJson(`http://127.0.0.1:${port}/json/list`);
+      const t = ts.find((x) => x.id === id);
+      if (!t) return null;
+      const c = await connect(t.webSocketDebuggerUrl);
+      await c.send('Page.enable');
+      shotConns.set(id, c);
+    }
+    return shotConns.get(id);
+  }
   const seenTargets = new Set();
 
   async function attachTo(target) {
@@ -486,10 +511,11 @@ flags: --chrome PATH --ffmpeg PATH --profile DIR --base URL --headed`);
   mainTargetId = firstPage.id;
   await attachTo(firstPage);
 
-  // Browser-level session for downloads.
+  // Browser-level session for downloads and target management.
+  let browserSess = null;
   try {
     const ver = await httpJson(`http://127.0.0.1:${port}/json/version`);
-    const browserSess = await connect(ver.webSocketDebuggerUrl);
+    browserSess = await connect(ver.webSocketDebuggerUrl);
     ctx.armDownload = async () => {
       await browserSess.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: join(out, 'downloads') });
     };
@@ -501,6 +527,8 @@ flags: --chrome PATH --ffmpeg PATH --profile DIR --base URL --headed`);
       const popup = ts.filter((t) => t.type === 'page' && !seenTargets.has(t.id)).pop();
       if (popup) {
         await attachTo(popup);
+        // Footage follows the popup; the journey session moved with it.
+        capTargetId = popup.id;
         return;
       }
       await sleep(250);
@@ -513,6 +541,19 @@ flags: --chrome PATH --ffmpeg PATH --profile DIR --base URL --headed`);
     const main = ts.find((t) => t.id === mainTargetId) ?? ts.find((t) => t.type === 'page');
     if (!main) throw new Error('backToMain: main target gone');
     await attachTo(main);
+    capTargetId = main.id;
+  };
+
+  ctx.closePopups = async () => {
+    const ts = await httpJson(`http://127.0.0.1:${port}/json/list`);
+    let n = 0;
+    for (const t of ts) {
+      if (t.type === 'page' && t.id !== mainTargetId && browserSess) {
+        try { await browserSess.send('Target.closeTarget', { targetId: t.id }); n++; } catch {}
+      }
+    }
+    await sleep(500);
+    return n;
   };
 
   async function startCapture() {
@@ -524,11 +565,13 @@ flags: --chrome PATH --ffmpeg PATH --profile DIR --base URL --headed`);
     captureStart = Date.now();
     (async () => {
       while (capturing) {
-        if (!sess) { await sleep(50); continue; }
         try {
           // Short fuse: a stall (first frame mid-navigation, a replaced
           // session) skips one frame instead of killing the loop.
-          const shot = await sess.send('Page.captureScreenshot', { format: 'jpeg', quality: 65 }, 5000);
+          const c = capTargetId ? await shotConn(capTargetId) : null;
+          const s = c ?? sess;
+          if (!s) { await sleep(50); continue; }
+          const shot = await s.send('Page.captureScreenshot', { format: 'jpeg', quality: 65 }, 5000);
           frames.push({ t: Date.now(), buf: Buffer.from(shot.result.data, 'base64') });
         } catch { await sleep(100); }
       }
@@ -538,7 +581,8 @@ flags: --chrome PATH --ffmpeg PATH --profile DIR --base URL --headed`);
     capturing = false;
     await sleep(150);
     try {
-      const shot = await sess.send('Page.captureScreenshot', { format: 'jpeg', quality: 65 });
+      const c = capTargetId ? await shotConn(capTargetId) : null;
+      const shot = await (c ?? sess).send('Page.captureScreenshot', { format: 'jpeg', quality: 65 });
       frames.push({ t: Date.now(), buf: Buffer.from(shot.result.data, 'base64') });
     } catch {}
   }
@@ -563,15 +607,15 @@ flags: --chrome PATH --ffmpeg PATH --profile DIR --base URL --headed`);
     const fdir = join(out, 'frames');
     frames.forEach((f, i) => writeFileSync(join(fdir, `f${String(i).padStart(4, '0')}.jpg`), f.buf));
     const eff = measuredFps();
-    console.log(`captured ${frames.length} frames at ~${eff.toFixed(1)}fps effective`);
-    await assemble(out, fdir, eff, frames.length);
+    console.log(`captured ${frames.length} frames (~${eff.toFixed(1)}fps average)`);
+    await assemble(out, fdir, frames);
   }
   try { sess.close(); } catch {}
   child.kill();
   console.log(rehearse ? 'REHEARSAL PASSED' : 'done: ' + out);
 }
 
-async function assemble(out, fdir, fps, nframes) {
+async function assemble(out, fdir, frames) {
   const ffmpeg = arg('ffmpeg', findFfmpeg());
   try { await execFileAsync(ffmpeg, ['-hide_banner', '-version']); }
   catch { console.error('ffmpeg not found, frames kept in frames/'); return; }
@@ -583,25 +627,35 @@ async function assemble(out, fdir, fps, nframes) {
   const fil = await execFileAsync(ffmpeg, ['-hide_banner', '-filters']).then((r) => r.stdout).catch(() => '');
   const hasEnc = (re) => re.test(enc);
   const hasMux = (re) => re.test(mux);
-  const fr = Number(fps.toFixed(1));
-  const dur = Math.max(1, Math.round(nframes / fr));
-  console.log(`assembling ~${dur}s from ${nframes} frames @${fr}fps`);
-  const frs = String(fr);
-  const run = (args) => execFileAsync(ffmpeg, ['-y', ...args]).catch((e) => {
+  // Exact pacing via the concat demuxer: every frame carries its own
+  // measured duration, so slow stretches play slow and fast ones fast —
+  // unlike a fixed -framerate, which turns rate variance into timelapse in
+  // one half and slow motion in the other.
+  const durs = frames.map((f, i) => {
+    const next = frames[Math.min(i + 1, frames.length - 1)].t;
+    return Math.min(2.0, Math.max(0.05, (next - f.t) / 1000 || 0.2));
+  });
+  const wall = durs.reduce((a, b) => a + b, 0);
+  console.log(`assembling ~${Math.round(wall)}s of wall time from ${frames.length} frames`);
+  const list = frames.map((_, i) =>
+    `file 'f${String(i).padStart(4, '0')}.jpg'\nduration ${durs[i].toFixed(3)}`).join('\n') + '\n';
+  writeFileSync(join(fdir, 'list.txt'), list);
+  const input = ['-f', 'concat', '-safe', '0', '-i', join(fdir, 'list.txt')];
+  const run = (args) => execFileAsync(ffmpeg, ['-y', ...args], { cwd: fdir }).catch((e) => {
     console.error('ffmpeg failed:', String(e.message || e).slice(0, 200));
   });
   const fullHint = 'for MP4+GIF: mkdir -p ~/.cache/demo-video && cd $_ && npm i ffmpeg-static';
   if (hasMux(/ mp4 /)) {
     const v = hasEnc(/libx264/) ? ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '21', '-preset', 'veryfast']
       : hasEnc(/ mpeg4 /) ? ['-c:v', 'mpeg4', '-q:v', '4'] : null;
-    if (v) await run(['-framerate', frs, '-i', join(fdir, 'f%04d.jpg'), ...v, '-movflags', '+faststart', join(out, 'take.mp4')]);
+    if (v) await run([...input, ...v, '-movflags', '+faststart', '-fps_mode', 'passthrough', join(out, 'take.mp4')]);
     else console.error('no mp4-capable encoder; ' + fullHint);
   } else console.error('no mp4 muxer; ' + fullHint);
   if (hasMux(/ webm /)) {
     const v = hasEnc(/libvpx-vp9/) ? ['-c:v', 'libvpx-vp9', '-b:v', '1M']
       : hasEnc(/libvpx-vp8/) ? ['-c:v', 'libvpx-vp8', '-b:v', '1M']
       : hasEnc(/libaom-av1/) ? ['-c:v', 'libaom-av1', '-b:v', '1M'] : null;
-    if (v) await run(['-framerate', frs, '-i', join(fdir, 'f%04d.jpg'), ...v, join(out, 'take.webm')]);
+    if (v) await run([...input, ...v, '-fps_mode', 'passthrough', join(out, 'take.webm')]);
     else console.error('no webm-capable encoder; ' + fullHint);
   }
   if (hasMux(/ gif /) && hasEnc(/ gif /)) {
@@ -609,7 +663,7 @@ async function assemble(out, fdir, fps, nframes) {
     const vf = pal
       ? 'fps=10,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse'
       : 'fps=10,scale=800:-1:flags=lanczos';
-    await run(['-framerate', frs, '-i', join(fdir, 'f%04d.jpg'), '-vf', vf, join(out, 'take.gif')]);
+    await run([...input, '-vf', vf, '-fps_mode', 'passthrough', join(out, 'take.gif')]);
   } else console.error('no gif support; ' + fullHint);
   for (const f of ['take.mp4', 'take.webm', 'take.gif']) {
     try {

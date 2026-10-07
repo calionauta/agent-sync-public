@@ -36,6 +36,7 @@ whole point — narration lives in `subtitle` steps, never in prose around it.
 | `followPopup` | — | Switches driving + recording to the newest popup target (OAuth, present/share windows). |
 | `main` | — | Switches back to the original page (e.g. after closing the popup). |
 | `close` | — | Closes the current page/tab (fire-and-forget: a close destroys its own CDP response). Follow with `main` to keep going. |
+| `closePopups` | — | Closes every page target except the main one. The tidy ending after a present/share beat. |
 | `download` | — | Must precede the click that triggers it; files land in `--out/downloads/`. |
 
 Resolution order for targets: explicit `selector` first, then `role` + `name`,
@@ -81,6 +82,17 @@ sel.dispatchEvent(new Event('change', { bubbles: true }));
 Prefer `selectedIndex` (or match by visible option text) over hardcoded
 option values when ids are generated per seed — `evaluate` with the recipe
 above, never a click on the closed control.
+
+## Popups (present/share windows)
+
+The reliable pattern is: click the opener (`expectPopup: true` follows the
+new target for journey steps) → dwell on the popup with subtitles → `close`
+or `closePopups` → `main` to continue. The driver launches Chromium with
+popup blocking disabled (synthetic clicks don't reliably earn transient
+activation) and screenshots ride a dedicated connection per target, so footage
+follows whichever target the journey is on. Never record a background popup
+you haven't dwelled on — an open-vanish beat reads as "shared then
+unshared".
 
 ## Outputs (`--out`, default `./demo-out/`)
 
