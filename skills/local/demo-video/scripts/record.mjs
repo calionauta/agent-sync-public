@@ -342,10 +342,13 @@ async function runStep(sess, ctx, step) {
       const fresh = await el(sess, step);
       if (!fresh) return fail(sess, ctx.out, 'target moved away during scroll', step);
       const at = `@${Math.round(fresh.x)},${Math.round(fresh.y)} ${Math.round(fresh.w)}x${Math.round(fresh.h)}`;
+      // The glide is deliberately slow (~600ms): at capture rates the whole
+      // point is that frames land mid-glide, so the viewer sees the cursor
+      // WALK. A 150ms glide fits between two frames and reads as a teleport.
       const cx = fresh.x + fresh.w / 2, cy = fresh.y + fresh.h / 2;
-      for (let i = 1; i <= 6; i++) {
-        await glide(sess, cx * (i / 6) + 4 * (1 - i / 6), cy * (i / 6));
-        await sleep(25);
+      for (let i = 1; i <= 12; i++) {
+        await glide(sess, cx * (i / 12) + 4 * (1 - i / 12), cy * (i / 12));
+        await sleep(50);
       }
       await sess.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: cx, y: cy, button: 'left', clickCount: 1 });
       await sess.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: cx, y: cy, button: 'left', clickCount: 1 });

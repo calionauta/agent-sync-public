@@ -51,6 +51,13 @@ reports which rule matched each step.
 After navigation 2.5s · after a click 0.8s · after typing 0.5s ·
 `sleep` where a result must be read (1.5–3s) · 3s hold on the final frame.
 Typing at 12 chars/s reads as human without boring anyone.
+Clicks glide ~600ms to the target: the walk must span several capture frames,
+or the cursor teleports between frames and the viewer loses the thread.
+Popup dwells hold 3–4s minimum with a subtitle naming the other side — an
+open-vanish beat reads as share-then-unshare, which is worse than no popup.
+Native `<select>` changes land without the menu ever opening (OS-level popup,
+unrecordable headless): the viewer sees the value change, so narrate it in
+the subtitle when the choice matters.
 
 ## Frame rate
 
