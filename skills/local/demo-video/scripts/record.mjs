@@ -235,6 +235,34 @@ const CURSOR_JS = `(() => {
   bar.id = 'demo-subtitle';
   bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483646;text-align:center;padding:12px 24px;background:rgba(0,0,0,.78);color:#fff;font:500 17px/1.4 system-ui,sans-serif;letter-spacing:.3px;opacity:0;transition:opacity .3s;pointer-events:none';
   document.body.appendChild(bar);
+  // Click ripple + key pill: the viewer should never wonder what was pressed.
+  // The ring blooms where the click lands; named keys (Enter, Esc, arrows…)
+  // get a corner pill. Typed characters are NOT echoed — the text already
+  // appears in the field itself, and doubling it is noise.
+  const css = document.createElement('style');
+  css.id = 'demo-fx';
+  css.textContent = '@keyframes demoRipple{from{transform:translate(-50%,-50%) scale(.3);opacity:.9}to{transform:translate(-50%,-50%) scale(1);opacity:0}}'
+    + '#demo-key{position:fixed;right:14px;bottom:64px;z-index:2147483646;padding:7px 13px;border-radius:10px;background:rgba(0,0,0,.78);color:#fff;font:600 14px/1.2 system-ui,sans-serif;letter-spacing:.3px;opacity:0;transition:opacity .25s;pointer-events:none;border:1px solid rgba(255,255,255,.25)}';
+  document.head.appendChild(css);
+  const key = document.createElement('div');
+  key.id = 'demo-key';
+  document.body.appendChild(key);
+  let keyTimer = null;
+  window.__demoRipple = (x, y) => {
+    const r = document.createElement('div');
+    r.style.cssText = 'position:fixed;left:' + x + 'px;top:' + y + 'px;width:44px;height:44px;border-radius:50%;border:3px solid #f59e0b;z-index:2147483647;pointer-events:none;animation:demoRipple .55s ease-out forwards';
+    document.body.appendChild(r);
+    setTimeout(() => r.remove(), 650);
+  };
+  const NAMES = { Enter: '⏎ Enter', Escape: 'Esc', Tab: 'Tab ↹', Backspace: '⌫ Apagar', Delete: 'Del', ' ': 'Espaço', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Home: 'Home', End: 'End', PageUp: 'PgUp', PageDown: 'PgDn' };
+  window.__demoKey = (k) => {
+    const label = NAMES[k];
+    if (!label) return;
+    key.textContent = label;
+    key.style.opacity = '1';
+    if (keyTimer) clearTimeout(keyTimer);
+    keyTimer = setTimeout(() => { key.style.opacity = '0'; }, 1200);
+  };
   return 'ok';
 })()`;
 
@@ -352,6 +380,7 @@ async function runStep(sess, ctx, step) {
       }
       await sess.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: cx, y: cy, button: 'left', clickCount: 1 });
       await sess.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: cx, y: cy, button: 'left', clickCount: 1 });
+      await evaluate(sess, `window.__demoRipple && window.__demoRipple(${Math.round(cx)}, ${Math.round(cy)})`);
       if (step.do === 'click') {
         await sleep(step.settle ?? 800);
         if (step.expectPopup) await ctx.followPopup();
@@ -373,6 +402,7 @@ async function runStep(sess, ctx, step) {
     case 'press': {
       await sess.send('Input.dispatchKeyEvent', { type: 'keyDown', key: step.key, code: step.key });
       await sess.send('Input.dispatchKeyEvent', { type: 'keyUp', key: step.key, code: step.key });
+      await evaluate(sess, `window.__demoKey && window.__demoKey(${JSON.stringify(step.key)})`);
       await sleep(step.settle ?? 500);
       log(true, step.key);
       return;

@@ -53,6 +53,9 @@ After navigation 2.5s · after a click 0.8s · after typing 0.5s ·
 Typing at 12 chars/s reads as human without boring anyone.
 Clicks glide ~600ms to the target: the walk must span several capture frames,
 or the cursor teleports between frames and the viewer loses the thread.
+Every click blooms an amber ring where it lands, and named keys (Enter, Esc,
+arrows…) flash a corner pill — both automatic, no playbook changes needed.
+Typed characters are never echoed: the text already appears in the field.
 Popup dwells hold 3–4s minimum with a subtitle naming the other side — an
 open-vanish beat reads as share-then-unshare, which is worse than no popup.
 Native `<select>` changes land without the menu ever opening (OS-level popup,
