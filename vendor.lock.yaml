@@ -1,0 +1,13 @@
+vendored:
+- name: first-reader
+  url: https://github.com/Shubhamsaboo/awesome-llm-apps
+  ref: main
+  commit: 6c16b23f1bacd0fdf240bb5141ef45e59e82c306
+  path: agent_skills/first-reader
+  published_path: skills/local/first-reader
+- name: last30days
+  url: https://github.com/mvanhorn/last30days-skill
+  ref: v3.30.0
+  commit: 7fac0fc31ba5212b5ddaa29252d9f7148cec8423
+  path: skills/last30days
+  published_path: skills/local/last30days

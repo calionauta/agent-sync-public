@@ -1,0 +1,41 @@
+# Configuração de serviços e preços do Sommelier de IA
+# Leia este arquivo sempre que precisar de um valor de preço ou descrição de serviço.
+# NUNCA hardcode valores no SKILL.md, nas referências ou nos templates HTML.
+# Os templates usam [[marcadores]] — a LLM lê este YAML e preenche os marcadores.
+#
+# Regra para ref (referência cruzada):
+# Quando um campo tiver { ref: "caminho.de.outra.chave" }, resolva-o buscando
+# o valor da chave indicada. Ex.: bonus_abatimento.ref = "servicos.diagnostico_sommelier.preco"
+# → resolva para 897 (o valor atual de diagnostico_sommelier.preco).
+
+servicos:
+  conversa_gratuita:
+    slug: "conversa-gratuita"
+    label_curto: "Conversa Gratuita"
+    label_relatorio: "Conversa gratuita · 20 min"
+    duracao_minutos: 20
+    preco: 0
+
+  diagnostico_sommelier:
+    slug: "diagnostico-sommelier"
+    label_curto: "Diagnóstico Sommelier"
+    label_relatorio: "Diagnóstico · 45 min"
+    duracao_minutos: 45
+    preco: 897
+
+  consultoria_pontual:
+    slug: "consultoria-pontual"
+    label_curto: "Consultoria Pontual"
+    preco: "sob demanda"
+    descricao: "Sessão avulsa focada em um problema ou automação específica."
+    bonus_abatimento:
+      ref: "servicos.diagnostico_sommelier.preco"
+      # Sempre use o valor atual de diagnostico_sommelier.preco como abatimento.
+      # Se o cliente já fez o Diagnóstico, este valor é abatido da Consultoria.
+
+  concierge_ai:
+    slug: "concierge-ai"
+    label_curto: "Concierge AI"
+    preco: null
+    # preco: null → perguntar à Cali o valor atual. Nunca inventar.
+    descricao: "Acompanhamento mensal contínuo para implementação."
