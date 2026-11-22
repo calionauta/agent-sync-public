@@ -14,6 +14,28 @@ metadata:
 
 > **Native tools:** `cymbal_*` (pi-cymbal) and `ast_grep_*` (joelhooks/pi-ast-grep) are first-class pi tools — call them directly, not via bash. `fffind`/`ffgrep` come from `@ff-labs/pi-fff`. **ripwire** is a system binary (not a pi extension) — call it via bash.
 
+## Pick by situation
+
+The whole rule set in one table. Everything below is the detail behind it.
+
+| Situation | First move |
+|---|---|
+| Symbol or filename is nameable (or greppable) | `grep "<name>"` then `read --offset/--limit` — jump straight to the line |
+| Unfamiliar repo, change touches >=3 files | `ripwire . --for="<task>"` |
+| Before a rename or signature change | `ripwire . --edit-check=SYM` |
+| "Who calls this" is genuinely ambiguous (DI, dispatch, names built at runtime) | `cymbal impact <sym>` |
+| >=3 symbols in one question | `ripwire . --connect=A,B,C` |
+| After a diff | `ripwire . --situ` |
+| What the docs say, or prose contradicts code | `xerj` |
+| Cross-file rewrite that changes shape | `ast-grep -r` (AST-safe; never grep+sed) |
+
+Never a default: cymbal for plain references, ripwire for a file you already know,
+xerj for anything grep or a test can answer.
+
+**ast-grep is for rewrite, not discovery.** grep and ripwire find the site;
+`ast-grep -r` changes it. Localized edits (1-2 files, function bodies) are plain
+edit/write. `sg scan` is for structural lint rules.
+
 ## ripwire — orient first
 
 For an unfamiliar repo or task, run ripwire once **before** any read/grep pass:
