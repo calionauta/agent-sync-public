@@ -2,8 +2,10 @@
 name: calionauta-code-navigation
 description: >
   [calionauta] Tool priority rules for code navigation: ripwire orient-first, Cymbal-first,
-  FFF fallback, batch guidance for token efficiency, and semantic diff workflow.
-  Activates on any file-task within a Git repository to guide agent tool selection.
+  FFF fallback, and semantic diff workflow. Also the shell batching rule: consecutive bash
+  calls collapse into one codemode round trip. Use before running several commands in a row
+  (even outside a Git repo), when orienting in an unfamiliar repo, or when choosing between
+  cymbal, ripwire, ripwire-graph-query and ast-grep.
 metadata:
   frequency: daily
   category: meta
@@ -101,14 +103,16 @@ Several tools accept multi-target in one call. Prefer batch when reading/searchi
 | `agent_browser job: {steps: [...]}` or `batch` stdin | N serial calls |
 | `subagent tasks: [...]` or `chain: [...]` | N calls |
 
-### The biggest batch is `codemode`, and it is not on the list above
+### Consecutive `bash` calls are the miss
 
-Any run of consecutive `bash` calls is a batch miss. `codemode` runs JavaScript
-that calls `tools.bash` itself, so N independent shell calls collapse into one
-round trip — and `Promise.allSettled` keeps them genuinely parallel:
+**Trigger: you are about to call `bash` and your previous call was also `bash`.**
+Stop and use `codemode` instead.
+
+`codemode` runs JavaScript that calls `tools.bash` itself, so N shell calls become
+one round trip. `Promise.allSettled` keeps them genuinely parallel, and the script
+filters the output before it reaches context:
 
 ```js
-// three independent facts, one round trip, output filtered inside
 const [pi, dirs, lock] = await Promise.allSettled([
   tools.bash({command: "pi --version"}),
   tools.bash({command: "ls -d ~/.agents/skills/*landing* 2>/dev/null | wc -l"}),
@@ -118,17 +122,13 @@ const pick = r => r.status === "fulfilled" ? r.value.output.trim() : "ERR";
 return "pi=" + pick(pi) + " landing=" + pick(dirs) + " lock=" + pick(lock);
 ```
 
-Measured on a 758-tool-call session (2026-11-24): **647 were `bash`, arriving in
-35 consecutive bursts** — 33 of them ran 2+ calls (one ran 93). Collapsing every
-burst of 2+ into a single `codemode` gives **647 → 35 tool calls**. The rule of
-thumb is mechanical, not aspirational: *about to call `bash` and the previous
-call was also `bash`? That is the signal.*
+Measured 2026-11-24 on a 758-tool-call session: **647 calls were `bash`, in 35
+consecutive bursts**; 33 bursts ran 2+ calls and the largest ran 93. Collapsing
+every burst into one `codemode` gives **647 -> 35**. Re-measure before claiming
+this rule works.
 
-Use it when the calls are independent, or when the work is *filter N things down
-to one answer* — grep, count, compare, check a list. Keep it a direct `bash`
-call when the next step depends on reading this step's full output.
-
-Don't batch: `edit`, `write`, `read` (each different context). `ffgrep`/`fffind` are already single-pattern fast.
+Keep a direct `bash` call when the next step depends on reading this step's full
+output. Do not batch `edit`, `write` or `read` — each carries different context.
 
 ## Cymbal v0.14+ — New & Notable
 
