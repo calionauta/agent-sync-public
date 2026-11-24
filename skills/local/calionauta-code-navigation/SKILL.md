@@ -101,6 +101,33 @@ Several tools accept multi-target in one call. Prefer batch when reading/searchi
 | `agent_browser job: {steps: [...]}` or `batch` stdin | N serial calls |
 | `subagent tasks: [...]` or `chain: [...]` | N calls |
 
+### The biggest batch is `codemode`, and it is not on the list above
+
+Any run of consecutive `bash` calls is a batch miss. `codemode` runs JavaScript
+that calls `tools.bash` itself, so N independent shell calls collapse into one
+round trip — and `Promise.allSettled` keeps them genuinely parallel:
+
+```js
+// three independent facts, one round trip, output filtered inside
+const [pi, dirs, lock] = await Promise.allSettled([
+  tools.bash({command: "pi --version"}),
+  tools.bash({command: "ls -d ~/.agents/skills/*landing* 2>/dev/null | wc -l"}),
+  tools.bash({command: "wc -l < ~/.agents/.skill-lock.json"}),
+]);
+const pick = r => r.status === "fulfilled" ? r.value.output.trim() : "ERR";
+return "pi=" + pick(pi) + " landing=" + pick(dirs) + " lock=" + pick(lock);
+```
+
+Measured on a 758-tool-call session (2026-11-24): **647 were `bash`, arriving in
+35 consecutive bursts** — 33 of them ran 2+ calls (one ran 93). Collapsing every
+burst of 2+ into a single `codemode` gives **647 → 35 tool calls**. The rule of
+thumb is mechanical, not aspirational: *about to call `bash` and the previous
+call was also `bash`? That is the signal.*
+
+Use it when the calls are independent, or when the work is *filter N things down
+to one answer* — grep, count, compare, check a list. Keep it a direct `bash`
+call when the next step depends on reading this step's full output.
+
 Don't batch: `edit`, `write`, `read` (each different context). `ffgrep`/`fffind` are already single-pattern fast.
 
 ## Cymbal v0.14+ — New & Notable
